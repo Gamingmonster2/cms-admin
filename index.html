@@ -1,53 +1,582 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head><meta charset="UTF-8"><title>لوحة التحكم المطورة</title></head>
-<body>
-    <h1>إدارة المقالات</h1>
-    <input type="text" id="title" placeholder="العنوان"><br>
-    <textarea id="content" placeholder="المحتوى"></textarea><br>
-    <input type="password" id="pat" placeholder="GitHub Token"><br>
-    <button onclick="addPost()">إضافة مقال جديد</button>
-    <hr>
-    <div id="posts-list">جاري تحميل المقالات...</div>
-
+<html lang="ar" dir="rtl" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم المطورة | نظام إدارة المحتوى الذكي</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Cairo & Tajawal -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-brand-100">
+                        <i class="fa-solid fa-feather-pointed text-lg"></i>
+                    </div>
+                    <div>
+                        <span class="text-lg font-extrabold text-slate-900 tracking-tight">الناشر الذكي</span>
+                        <span class="text-xs block text-slate-400 font-medium">لوحة التحكم المطورة v2.0</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- Status Indicator -->
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        متصل بقاعدة البيانات
+                    </div>
+                    
+                    <!-- Quick Stats Badge -->
+                    <div class="flex items-center gap-1.5 text-slate-500 hover:text-slate-700 transition cursor-pointer">
+                        <i class="fa-regular fa-bell text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Warning Banner for Blocked/Suspicious Status -->
+        <div id="security-lockout-banner" class="hidden mb-6 bg-rose-50 border-2 border-rose-200 text-rose-900 p-5 rounded-2xl shadow-sm flex-col md:flex-row gap-4 items-center justify-between animate-bounce">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg">تم قفل العمليات مؤقتاً!</h4>
+                    <p class="text-sm text-rose-700 mt-1 leading-relaxed">لقد قمت بإدخال رمز التحقق (GitHub Token) بشكل خاطئ لثلاث مرات متتالية. لحماية بياناتك، تم تعليق عمليات النشر والحذف مؤقتاً.</p>
+                </div>
+            </div>
+            <button onclick="resetSecurityCounter()" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm rounded-xl transition duration-150 shadow-md shadow-rose-200 shrink-0">
+                إعادة محاولة التحقق <i class="fa-solid fa-rotate-right mr-1.5"></i>
+            </button>
+        </div>
+
+        <!-- Dashboard Stats Widgets -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <span class="text-slate-400 text-sm font-medium block mb-1">إجمالي المقالات المنشورة</span>
+                    <span id="stats-count" class="text-3xl font-extrabold text-slate-900">0</span>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-newspaper"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <span class="text-slate-400 text-sm font-medium block mb-1">رمز الاتصال (PAT)</span>
+                    <span id="stats-token-status" class="text-sm font-bold text-amber-600 flex items-center gap-1.5 mt-2">
+                        <i class="fa-solid fa-circle-exclamation"></i> بانتظار الرمز
+                    </span>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <span class="text-slate-400 text-sm font-medium block mb-1">محاولات التحقق الخاطئة</span>
+                    <span id="stats-attempts" class="text-3xl font-extrabold text-slate-900">0 <span class="text-sm text-slate-400 font-normal">/ 3</span></span>
+                </div>
+                <div id="attempts-icon-container" class="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two-Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Right Column: Writer & Configuration Form -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Security Credentials Panel -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <i class="fa-solid fa-lock text-sm"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900">إعدادات الأمان والمزامنة</h3>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                        يتطلب إجراء تعديلات على المقالات توفير رمز الوصول الشخصي (GitHub PAT) المرتبط بـ Gist المخصص لقاعدة البيانات.
+                    </p>
+                    <div>
+                        <label for="pat" class="block text-xs font-bold text-slate-700 mb-2">GitHub Token (PAT)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+                                <i class="fa-solid fa-key"></i>
+                            </span>
+                            <input type="password" id="pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" 
+                                class="w-full pr-10 pl-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition duration-150 placeholder:text-slate-400">
+                            <button type="button" onclick="togglePatVisibility()" class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600">
+                                <i id="pat-toggle-icon" class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1.5 block">سيتم تشفير الاتصال تلقائياً عبر بروتوكول HTTPS الخاص بـ GitHub.</span>
+                    </div>
+                </div>
+
+                <!-- Create Article Panel -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                            <i class="fa-solid fa-pen-nib text-sm"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-900">كتابة مقال جديد</h3>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="title" class="block text-xs font-bold text-slate-700 mb-2">عنوان المقال</label>
+                            <input type="text" id="title" placeholder="أدخل عنواناً جذاباً ومختصراً..." 
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition duration-150">
+                        </div>
+
+                        <div>
+                            <label for="content" class="block text-xs font-bold text-slate-700 mb-2">محتوى المقال</label>
+                            <textarea id="content" rows="6" placeholder="اكتب محتوى المقال بالتفصيل هنا..." 
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition duration-150 resize-y"></textarea>
+                        </div>
+
+                        <button id="add-btn" onclick="addPost()" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl transition-all duration-150 shadow-md hover:shadow-lg hover:shadow-brand-100 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plus"></i> إضافة ونشر المقال
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Left Column: Articles Management List -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-lg">أرشيف المقالات المنشورة</h3>
+                        <p class="text-xs text-slate-400 mt-1">تصفح، ابحث، وتحكم بالمقالات الخاصة بك المخزنة سحابياً</p>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div class="relative w-full sm:w-64">
+                        <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                        </span>
+                        <input type="text" id="search-input" oninput="filterPosts()" placeholder="ابحث في العناوين..." 
+                            class="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition duration-150">
+                    </div>
+                </div>
+
+                <!-- Table/List view of posts -->
+                <div id="posts-list-container" class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+                    <!-- Loading Skeleton State -->
+                    <div id="posts-list-placeholder" class="p-8 text-center text-slate-400">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 border-t-brand-600 mb-3"></div>
+                        <p class="text-sm font-medium">جاري تحميل وتزامن المقالات من السحابة...</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            &copy; <span id="year"></span> منصة الناشر الذكي. جميع الحقوق محفوظة لـ Gist Database Service.
+        </div>
+    </footer>
+
+    <!-- Notification Toast System -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 space-y-3 max-w-sm w-full"></div>
+
+    <!-- Redesigned JS Code with Security Constraints -->
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+
         const GIST_ID = '88c35a33f7886600d2f43f51f4f8601c';
         let posts = [];
+        let failedAttempts = 0;
+        const MAX_ATTEMPTS = 3;
 
+        // Load Posts initially
         async function loadPosts() {
-            const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-            const data = await res.json();
-            posts = JSON.parse(data.files['database.json'].content).posts;
-            document.getElementById('posts-list').innerHTML = posts.map((p, i) => `
-                <div>
-                    <h3>${p.title}</h3>
-                    <button onclick="deletePost(${i})">حذف</button>
-                </div>
-            `).join('');
+            const listContainer = document.getElementById('posts-list-container');
+            
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+                if (!res.ok) throw new Error("فشل تحميل البيانات");
+                
+                const data = await res.json();
+                posts = JSON.parse(data.files['database.json'].content).posts;
+                
+                // Sort posts by date descending (newest first)
+                posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                renderPosts(posts);
+                updateStats();
+            } catch (error) {
+                listContainer.innerHTML = `
+                    <div class="p-12 text-center">
+                        <div class="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-cloud-slash text-2xl"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800 mb-1">فشل الاتصال بـ Gist</h4>
+                        <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">يرجى التحقق من اتصال الإنترنت الخاص بك أو التأكد من إعدادات Gist ID الحالي.</p>
+                    </div>
+                `;
+            }
         }
 
+        // Render posts array to DOM
+        function renderPosts(items) {
+            const listContainer = document.getElementById('posts-list-container');
+            
+            if (items.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="p-12 text-center text-slate-400">
+                        <i class="fa-regular fa-folder-open text-4xl mb-3 block text-slate-300"></i>
+                        <p class="text-sm font-medium">لا توجد مقالات منشورة حالياً.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = items.map((p, i) => {
+                const originalIndex = posts.findIndex(item => item.date === p.date);
+                const formattedDate = p.date ? new Date(p.date).toLocaleDateString('ar-EG', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                }) : 'تاريخ غير معروف';
+
+                return `
+                    <div class="p-6 hover:bg-slate-50 transition duration-150 flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div class="space-y-2 flex-grow">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-1 bg-brand-50 text-brand-700 text-[10px] font-bold rounded-md">مقال</span>
+                                <span class="text-slate-400 text-[10px]"><i class="fa-regular fa-clock ml-1"></i>${formattedDate}</span>
+                            </div>
+                            <h4 class="font-bold text-slate-900 text-base">${escapeHtml(p.title)}</h4>
+                            <p class="text-slate-500 text-xs leading-relaxed line-clamp-2">${escapeHtml(p.content)}</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                            <button onclick="deletePost(${originalIndex})" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition duration-150 flex items-center gap-1.5">
+                                <i class="fa-regular fa-trash-can"></i> حذف
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Real-time search/filter
+        function filterPosts() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = posts.filter(p => 
+                p.title.toLowerCase().includes(query) || 
+                p.content.toLowerCase().includes(query)
+            );
+            renderPosts(filtered);
+        }
+
+        // Add Post
         async function addPost() {
-            const title = document.getElementById('title').value;
-            const content = document.getElementById('content').value;
-            posts.push({ title, content, date: new Date().toISOString() });
-            saveToGist();
+            if (isLockedOut()) return;
+
+            const titleInput = document.getElementById('title');
+            const contentInput = document.getElementById('content');
+            const patInput = document.getElementById('pat');
+
+            const title = titleInput.value.trim();
+            const content = contentInput.value.trim();
+            const pat = patInput.value.trim();
+
+            if (!title || !content) {
+                showToast('يرجى ملء جميع الحقول المطلوبة للمقال!', 'warning');
+                return;
+            }
+
+            if (!pat) {
+                showToast('يرجى إدخال رمز التحقق (PAT) لإجراء التغييرات!', 'warning');
+                patInput.focus();
+                return;
+            }
+
+            // Temporarily disable add button to prevent double-click
+            const addBtn = document.getElementById('add-btn');
+            addBtn.disabled = true;
+            addBtn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> جاري النشر...`;
+
+            // Prepare new posts list
+            const updatedPosts = [{ title, content, date: new Date().toISOString() }, ...posts];
+            
+            const success = await saveToGist(updatedPosts, pat);
+            
+            addBtn.disabled = false;
+            addBtn.innerHTML = `<i class="fa-solid fa-plus"></i> إضافة ونشر المقال`;
+
+            if (success) {
+                titleInput.value = '';
+                contentInput.value = '';
+                showToast('تم نشر المقال بنجاح ومزامنته سحابياً!', 'success');
+            }
         }
 
+        // Delete Post
         async function deletePost(index) {
-            posts.splice(index, 1);
-            saveToGist();
+            if (isLockedOut()) return;
+
+            const patInput = document.getElementById('pat');
+            const pat = patInput.value.trim();
+
+            if (!pat) {
+                showToast('رمز التحقق (PAT) مطلوب لإتمام عملية الحذف!', 'warning');
+                patInput.focus();
+                return;
+            }
+
+            if (!confirm('هل أنت متأكد تماماً من رغبتك في حذف هذا المقال نهائياً؟')) {
+                return;
+            }
+
+            // Prepare updated posts list
+            const updatedPosts = [...posts];
+            updatedPosts.splice(index, 1);
+
+            const success = await saveToGist(updatedPosts, pat);
+            if (success) {
+                showToast('تم حذف المقال بنجاح وتحديث السحابة.', 'success');
+            }
         }
 
-        async function saveToGist() {
-            const pat = document.getElementById('pat').value;
-            const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `token ${pat}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files: { 'database.json': { content: JSON.stringify({ posts }) } } })
-            });
-            res.ok ? (alert('تم التحديث!'), loadPosts()) : alert('خطأ في النشر');
+        // Save to Gist (Core API call)
+        async function saveToGist(updatedPosts, pat) {
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Authorization': `token ${pat}`, 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ 
+                        files: { 
+                            'database.json': { 
+                                content: JSON.stringify({ posts: updatedPosts }) 
+                            } 
+                        } 
+                    })
+                });
+
+                if (res.ok) {
+                    posts = updatedPosts;
+                    renderPosts(posts);
+                    updateStats();
+                    // Reset failed attempts upon a successful operation
+                    failedAttempts = 0;
+                    updateSecurityUI();
+                    return true;
+                } else {
+                    throw new Error("فشل التحقق من الرمز");
+                }
+            } catch (error) {
+                handleFailedAttempt();
+                return false;
+            }
         }
 
+        // Handle failed login/PAT attempts
+        function handleFailedAttempt() {
+            failedAttempts++;
+            updateSecurityUI();
+            
+            if (failedAttempts >= MAX_ATTEMPTS) {
+                triggerLockout();
+            } else {
+                showToast(`خطأ في الرمز! المحاولات المتبقية قبل القفل: ${MAX_ATTEMPTS - failedAttempts}`, 'error');
+            }
+        }
+
+        // Trigger visual Lockout State
+        function triggerLockout() {
+            document.getElementById('security-lockout-banner').classList.remove('hidden');
+            document.getElementById('security-lockout-banner').classList.add('flex');
+            
+            // Disable actions
+            document.getElementById('add-btn').disabled = true;
+            document.getElementById('add-btn').classList.add('opacity-50', 'cursor-not-allowed');
+            
+            showToast('تم قفل لوحة التحكم نظراً لتكرار الأخطاء!', 'error');
+        }
+
+        // Reset Security Counter
+        function resetSecurityCounter() {
+            failedAttempts = 0;
+            updateSecurityUI();
+            
+            document.getElementById('security-lockout-banner').classList.add('hidden');
+            document.getElementById('security-lockout-banner').classList.remove('flex');
+            
+            document.getElementById('add-btn').disabled = false;
+            document.getElementById('add-btn').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            showToast('تمت إعادة ضبط محاولات الأمان. يرجى إدخال الرمز الصحيح.', 'info');
+        }
+
+        // Helper to check lockout status
+        function isLockedOut() {
+            if (failedAttempts >= MAX_ATTEMPTS) {
+                showToast('العملية مرفوضة! لوحة التحكم مقفلة حالياً.', 'error');
+                return true;
+            }
+            return false;
+        }
+
+        // UI State Updaters
+        function updateSecurityUI() {
+            document.getElementById('stats-attempts').innerHTML = `${failedAttempts} <span class="text-sm text-slate-400 font-normal">/ ${MAX_ATTEMPTS}</span>`;
+            
+            const attemptsContainer = document.getElementById('attempts-icon-container');
+            if (failedAttempts > 0) {
+                attemptsContainer.className = "w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl animate-pulse";
+            } else {
+                attemptsContainer.className = "w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl";
+            }
+
+            const patInput = document.getElementById('pat').value.trim();
+            const tokenStatus = document.getElementById('stats-token-status');
+            if (patInput) {
+                tokenStatus.className = "text-sm font-bold text-emerald-600 flex items-center gap-1.5 mt-2";
+                tokenStatus.innerHTML = `<i class="fa-solid fa-circle-check"></i> جاهز للاتصال`;
+            } else {
+                tokenStatus.className = "text-sm font-bold text-amber-600 flex items-center gap-1.5 mt-2";
+                tokenStatus.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> بانتظار الرمز`;
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('stats-count').textContent = posts.length;
+        }
+
+        // Toggle PAT visibility
+        function togglePatVisibility() {
+            const patInput = document.getElementById('pat');
+            const icon = document.getElementById('pat-toggle-icon');
+            if (patInput.type === 'password') {
+                patInput.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                patInput.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-slate-900 text-white';
+            let icon = '<i class="fa-solid fa-circle-info"></i>';
+            
+            if (type === 'success') {
+                bg = 'bg-emerald-600 text-white';
+                icon = '<i class="fa-solid fa-circle-check"></i>';
+            } else if (type === 'error') {
+                bg = 'bg-rose-600 text-white';
+                icon = '<i class="fa-solid fa-circle-xmark"></i>';
+            } else if (type === 'warning') {
+                bg = 'bg-amber-500 text-slate-900';
+                icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+
+            toast.className = `${bg} px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-xs font-semibold transform translate-y-2 transition-all duration-300 opacity-0`;
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Auto remove
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Real-time update check for PAT field
+        document.getElementById('pat').addEventListener('input', updateSecurityUI);
+
+        // Initialize application on load
         loadPosts();
     </script>
 </body>
